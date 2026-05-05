@@ -59,6 +59,13 @@
             "required": true,
             "schema": { "type": "string" },
             "description": "City name (e.g. \"Paris\")"
+          },
+          {
+            "name": "forecast",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" },
+            "description": "If true, includes weather forecast for the next 2 days"
           }
         ],
         "responses": {
@@ -74,7 +81,21 @@
                     "temperature": { "type": "number", "description": "Temperature in Celsius" },
                     "feels_like": { "type": "number" },
                     "humidity": { "type": "integer" },
-                    "description": { "type": "string", "example": "light rain" }
+                    "description": { "type": "string", "example": "light rain" },
+                    "forecast": {
+                      "type": "array",
+                      "description": "Present only when forecast=true",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "date": { "type": "string", "example": "2024-05-06" },
+                          "temperature": { "type": "number" },
+                          "feels_like": { "type": "number" },
+                          "humidity": { "type": "integer" },
+                          "description": { "type": "string" }
+                        }
+                      }
+                    }
                   }
                 }
               }
