@@ -1,6 +1,7 @@
 import { getUpdates, sendMessage } from "../services/telegram.service";
 import { getWeather, getWeatherWithForecast, CityNotFoundError } from "../services/weather.service";
 import { getRandomJoke } from "../services/joke.service";
+import { handleInsult } from "../services/mistral.service";
 import type { ForecastDayDto } from "../dtos/weather.dto";
 
 const POLL_INTERVAL_MS = 5000;
@@ -60,7 +61,12 @@ async function handleUpdate(chatId: number, text: string): Promise<void> {
     return;
   }
 
-  await sendMessage(chatId, "Désolé, je ne comprends pas ce message. Essayez : \"météo Paris\", \"météo Paris 3 jours\" ou \"histoire drôle\".");
+  const insultReply = await handleInsult(text);
+  if (insultReply) {
+    await sendMessage(chatId, insultReply);
+  } else {
+    await sendMessage(chatId, "Désolé, je ne comprends pas ce message. Essayez : \"météo Paris\", \"météo Paris 3 jours\" ou \"histoire drôle\".");
+  }
 }
 
 async function poll(): Promise<void> {
