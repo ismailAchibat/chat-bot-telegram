@@ -1,0 +1,141 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Interop API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/telegram/message": {
+      "post": {
+        "summary": "Send a message to a Telegram chat",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["chatId", "text"],
+                "properties": {
+                  "chatId": {
+                    "type": "string",
+                    "description": "Telegram chat or user ID"
+                  },
+                  "text": {
+                    "type": "string",
+                    "description": "Message to send"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Message sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "messageId": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "502": { "$ref": "#/components/responses/UpstreamError" }
+        }
+      }
+    },
+    "/weather": {
+      "get": {
+        "summary": "Get current weather for a city",
+        "parameters": [
+          {
+            "name": "city",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "City name (e.g. \"Paris\")"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Weather data for the requested city",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "city": { "type": "string" },
+                    "country": { "type": "string" },
+                    "temperature": { "type": "number", "description": "Temperature in Celsius" },
+                    "feels_like": { "type": "number" },
+                    "humidity": { "type": "integer" },
+                    "description": { "type": "string", "example": "light rain" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "description": "City not found" },
+          "502": { "$ref": "#/components/responses/UpstreamError" }
+        }
+      }
+    },
+    "/joke": {
+      "get": {
+        "summary": "Get a random funny story",
+        "responses": {
+          "200": {
+            "description": "A randomly picked joke",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "integer" },
+                    "joke": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "BadRequest": {
+        "description": "Missing or invalid parameters",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "UpstreamError": {
+        "description": "External API call failed",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
