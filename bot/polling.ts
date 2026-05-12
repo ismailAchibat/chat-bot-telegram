@@ -7,6 +7,7 @@ import { logger } from "../utils/logger";
 
 const POLL_INTERVAL_MS = 1000;
 
+const HELP_REGEX         = /^help$/i;
 const METEO_REGEX        = /(?:m[eé]t[eé]o|weather)\s+(.+)/i;
 const FORECAST_KEYWORD   = /3\s*jours|3\s*days|forecast/i;
 const JOKE_REGEX         = /histoire\s+dr[oô]le|joke/i;
@@ -28,6 +29,30 @@ async function reply(chatId: number, text: string): Promise<void> {
 
 async function handleUpdate(chatId: number, text: string): Promise<void> {
   logger.in(chatId, text);
+
+  // --- help ---
+
+  if (HELP_REGEX.test(text)) {
+    logger.intent("help");
+    await reply(chatId,
+      "Voici ce que je peux faire pour vous :\n\n" +
+      "🌤 Météo\n" +
+      "  météo <ville> — météo du jour\n" +
+      "  météo <ville> 3 jours — météo + prévisions\n\n" +
+      "😂 Blagues\n" +
+      "  joke — blague aléatoire\n" +
+      "  list jokes — voir toutes les blagues\n" +
+      "  add joke <texte> — ajouter une blague\n" +
+      "  delete joke <id> — supprimer une blague\n\n" +
+      "✅ Tâches\n" +
+      "  list tasks — voir toutes les tâches\n" +
+      "  add task <texte> — ajouter une tâche\n" +
+      "  check task <id> — marquer comme faite\n" +
+      "  uncheck task <id> — marquer comme non faite\n" +
+      "  delete task <id> — supprimer une tâche"
+    );
+    return;
+  }
 
   // --- tasks ---
 
@@ -174,7 +199,7 @@ async function handleUpdate(chatId: number, text: string): Promise<void> {
   // --- fallback ---
 
   logger.intent("unrecognized");
-  await reply(chatId, "Désolé, je ne comprends pas ce message. Essayez : \"météo Paris\", \"list tasks\", \"add task ...\", \"check task 1\", \"delete task 1\", \"list jokes\", \"joke\".");
+  await reply(chatId, "Désolé, je ne comprends pas ce message. Tapez \"help\" pour voir ce que je peux faire pour vous.");
 }
 
 async function poll(): Promise<void> {
