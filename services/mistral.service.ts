@@ -54,6 +54,22 @@ Respond with ONLY a raw JSON object, no markdown, no explanation:
 {"action": "delete", "taskId": 3}
 {"action": "unknown", "taskId": null}`;
 
+const RECOMMEND_PROMPT = `You are a movie and series expert. The user wants a recommendation.
+Reply in French with a single recommendation in this format:
+🎬 <Title> (<year>)
+🎭 Genre: <genre>
+⭐ <one punchy sentence on why it's worth watching>
+📖 <2-3 sentence synopsis, no spoilers>
+
+Keep it short, engaging, and conversational. Vary your picks — don't always suggest the most obvious titles.`;
+
+export async function recommendContent(type: "film" | "série", genre?: string): Promise<string> {
+  const request = genre
+    ? `Recommend a ${type} in the "${genre}" genre.`
+    : `Recommend any great ${type}.`;
+  return callMistral(RECOMMEND_PROMPT, request);
+}
+
 export async function generateWeatherAdvice(
   data: WeatherResponseDto | WeatherWithForecastDto,
 ): Promise<string> {

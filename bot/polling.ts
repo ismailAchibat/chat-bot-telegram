@@ -2,12 +2,13 @@ import { getUpdates, sendMessage } from "../services/telegram.service";
 import { getWeather, getWeatherWithForecast, CityNotFoundError } from "../services/weather.service";
 import { getRandomJoke, listJokes, addJoke, deleteJoke } from "../services/joke.service";
 import { listTasks, addTask, checkTask, uncheckTask, deleteTask } from "../services/task.service";
-import { generateWeatherAdvice, resolveTaskCommand } from "../services/mistral.service";
+import { generateWeatherAdvice, resolveTaskCommand, recommendContent } from "../services/mistral.service";
 import { logger } from "../utils/logger";
 
 const POLL_INTERVAL_MS = 1000;
 
 const HELP_REGEX         = /^help$/i;
+const RECOMMEND_REGEX    = /recommend\s+(film|movie|série|serie|series|show)\s*(.+)?/i;
 const METEO_REGEX        = /(?:m[eé]t[eé]o|weather)\s+(.+)/i;
 const FORECAST_KEYWORD   = /3\s*jours|3\s*days|forecast/i;
 const JOKE_REGEX         = /histoire\s+dr[oô]le|joke/i;
@@ -44,6 +45,11 @@ async function handleUpdate(chatId: number, text: string): Promise<void> {
       "  list jokes — voir toutes les blagues\n" +
       "  add joke <texte> — ajouter une blague\n" +
       "  delete joke <id> — supprimer une blague\n\n" +
+      "🎬 Recommandations\n" +
+      "  recommend movie — film aléatoire\n" +
+      "  recommend movie <genre> — film par genre\n" +
+      "  recommend serie — série aléatoire\n" +
+      "  recommend serie <genre> — série par genre\n\n" +
       "✅ Tâches\n" +
       "  list tasks — voir toutes les tâches\n" +
       "  add task <texte> — ajouter une tâche\n" +
@@ -51,6 +57,24 @@ async function handleUpdate(chatId: number, text: string): Promise<void> {
       "  uncheck task <id> — marquer comme non faite\n" +
       "  delete task <id> — supprimer une tâche"
     );
+    return;
+  }
+
+  // --- recommend ---
+
+  const recommendMatch = RECOMMEND_REGEX.exec(text);
+  if (recommendMatch) {
+    const rawType = recommendMatch[1]!.toLowerCase();
+    const type = (rawType === "movie" || rawType === "film") ? "film" : "série";
+    const genre = recommendMatch[2]?.trim() || undefined;
+    logger.intent("recommend", genre ? `${type} · ${genre}` : type);
+    try {
+      const msg = await recommendContent(type, genre);
+      await reply(chatId, msg);
+    } catch (err) {
+      logger.error("recommend", err);
+      await reply(chatId, "Erreur lors de la récupération de la recommandation.");
+    }
     return;
   }
 
