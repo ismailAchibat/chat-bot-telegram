@@ -1,4 +1,5 @@
 import type { WeatherResponseDto, WeatherWithForecastDto } from "../dtos/weather.dto";
+import type { TaskDto } from "../dtos/task.dto";
 
 interface MistralResponse {
   choices: Array<{
@@ -6,6 +7,11 @@ interface MistralResponse {
       content: string;
     };
   }>;
+}
+
+export interface TaskResolution {
+  action: "check" | "uncheck" | "delete" | "unknown";
+  taskId: number | null;
 }
 
 async function callMistral(systemPrompt: string, userMessage: string): Promise<string> {
@@ -37,8 +43,33 @@ Write a short, natural and friendly message (3-5 sentences) in French that:
 If forecast data is included, briefly mention what's coming in the next days too.
 Do NOT output raw numbers or JSON — write naturally like a friend texting you.`;
 
+const TASK_RESOLVE_PROMPT = `You are a task manager assistant. The user sent a message about managing their tasks but didn't provide a task ID.
+You will receive the user's message and their current task list as JSON.
+Your job is to figure out which task the user is referring to and what action they want.
+
+Supported actions: "check" (mark as done), "uncheck" (mark as not done), "delete" (remove the task).
+
+Respond with ONLY a raw JSON object, no markdown, no explanation:
+{"action": "check", "taskId": 2}
+{"action": "delete", "taskId": 3}
+{"action": "unknown", "taskId": null}`;
+
 export async function generateWeatherAdvice(
   data: WeatherResponseDto | WeatherWithForecastDto,
 ): Promise<string> {
   return callMistral(WEATHER_PROMPT, JSON.stringify(data, null, 2));
+}
+
+export async function resolveTaskCommand(
+  message: string,
+  tasks: TaskDto[],
+): Promise<TaskResolution> {
+  const userMessage = `User message: "${message}"\n\nTask list:\n${JSON.stringify(tasks, null, 2)}`;
+  const raw = await callMistral(TASK_RESOLVE_PROMPT, userMessage);
+
+  try {
+    return JSON.parse(raw) as TaskResolution;
+  } catch {
+    return { action: "unknown", taskId: null };
+  }
 }
