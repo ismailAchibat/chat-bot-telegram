@@ -3,8 +3,8 @@ import { getRandomJoke } from "../services/joke.service";
 
 const joke = new Hono();
 
-joke.get("/", (c) => {
-  return c.json(getRandomJoke());
+joke.get("/", async (c) => {
+  return c.json(await getRandomJoke());
 });
 
 export default joke;

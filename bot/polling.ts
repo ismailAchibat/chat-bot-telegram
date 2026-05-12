@@ -1,24 +1,18 @@
 import { getUpdates, sendMessage } from "../services/telegram.service";
 import { getWeather, getWeatherWithForecast, CityNotFoundError } from "../services/weather.service";
-import { getRandomJoke } from "../services/joke.service";
-import { handleInsult } from "../services/mistral.service";
+import { getRandomJoke, listJokes, addJoke, deleteJoke } from "../services/joke.service";
+import { generateWeatherAdvice } from "../services/mistral.service";
 import { logger } from "../utils/logger";
-import type { ForecastDayDto } from "../dtos/weather.dto";
 
-const POLL_INTERVAL_MS = 500;
+const POLL_INTERVAL_MS = 1000;
 const METEO_REGEX = /(?:m[eé]t[eé]o|weather)\s+(.+)/i;
 const FORECAST_KEYWORD = /3\s*jours|3\s*days|forecast/i;
 const JOKE_REGEX = /histoire\s+dr[oô]le|joke/i;
+const LIST_JOKES_REGEX = /list\s+jokes/i;
+const ADD_JOKE_REGEX = /add\s+joke\s+(.+)/i;
+const DELETE_JOKE_REGEX = /delete\s+joke\s+(\d+)/i;
 
 let offset = 0;
-
-function formatForecastDay(day: ForecastDayDto): string {
-  return (
-    `📅 ${day.date}\n` +
-    `  🌡️ ${day.temperature}°C (ressenti ${day.feels_like}°C)\n` +
-    `  💧 ${day.humidity}% · ${day.description}`
-  );
-}
 
 async function reply(chatId: number, text: string): Promise<void> {
   await sendMessage(chatId, text);
@@ -28,9 +22,34 @@ async function reply(chatId: number, text: string): Promise<void> {
 async function handleUpdate(chatId: number, text: string): Promise<void> {
   logger.in(chatId, text);
 
+  if (LIST_JOKES_REGEX.test(text)) {
+    logger.intent("list jokes");
+    const all = await listJokes();
+    const msg = all.map((j, i) => `${i + 1}- ${j.joke}`).join("\n");
+    await reply(chatId, msg);
+    return;
+  }
+
+  const addMatch = ADD_JOKE_REGEX.exec(text);
+  if (addMatch) {
+    const newJoke = await addJoke(addMatch[1]!.trim());
+    logger.intent("add joke", newJoke.joke);
+    await reply(chatId, `Blague ajoutée (id: ${newJoke.id}) ✅`);
+    return;
+  }
+
+  const deleteMatch = DELETE_JOKE_REGEX.exec(text);
+  if (deleteMatch) {
+    const id = parseInt(deleteMatch[1]!);
+    logger.intent("delete joke", String(id));
+    const deleted = await deleteJoke(id);
+    await reply(chatId, deleted ? `Blague ${id} supprimée ✅` : `Aucune blague trouvée avec l'id ${id}.`);
+    return;
+  }
+
   if (JOKE_REGEX.test(text)) {
     logger.intent("joke");
-    const { joke } = getRandomJoke();
+    const { joke } = await getRandomJoke();
     await reply(chatId, joke);
     return;
   }
@@ -44,24 +63,13 @@ async function handleUpdate(chatId: number, text: string): Promise<void> {
     logger.intent(wantsForecast ? "météo+forecast" : "météo", city);
 
     try {
-      if (wantsForecast) {
-        const data = await getWeatherWithForecast(city);
-        const msg =
-          `Météo à ${data.city}, ${data.country}:\n` +
-          `🌡️ Aujourd'hui: ${data.temperature}°C (ressenti ${data.feels_like}°C)\n` +
-          `💧 Humidité: ${data.humidity}% · ${data.description}\n\n` +
-          `Prévisions:\n` +
-          data.forecast.map(formatForecastDay).join("\n\n");
-        await reply(chatId, msg);
-      } else {
-        const data = await getWeather(city);
-        const msg =
-          `Météo à ${data.city}, ${data.country}:\n` +
-          `🌡️ Température: ${data.temperature}°C (ressenti ${data.feels_like}°C)\n` +
-          `💧 Humidité: ${data.humidity}%\n` +
-          `☁️ ${data.description}`;
-        await reply(chatId, msg);
-      }
+      const data = wantsForecast
+        ? await getWeatherWithForecast(city)
+        : await getWeather(city);
+
+      logger.intent("mistral → weather advice");
+      const msg = await generateWeatherAdvice(data);
+      await reply(chatId, msg);
     } catch (err) {
       logger.error("weather", err);
       if (err instanceof CityNotFoundError) {
@@ -73,19 +81,8 @@ async function handleUpdate(chatId: number, text: string): Promise<void> {
     return;
   }
 
-  logger.intent("unrecognized → mistral");
-  try {
-    const insultReply = await handleInsult(text);
-    if (insultReply) {
-      logger.intent("insult detected");
-      await reply(chatId, insultReply);
-    } else {
-      await reply(chatId, "Désolé, je ne comprends pas ce message. Essayez : \"météo Paris\", \"météo Paris 3 jours\" ou \"histoire drôle\".");
-    }
-  } catch (err) {
-    logger.error("mistral", err);
-    await reply(chatId, "Désolé, je ne comprends pas ce message. Essayez : \"météo Paris\", \"météo Paris 3 jours\" ou \"histoire drôle\".");
-  }
+  logger.intent("unrecognized");
+  await reply(chatId, "Désolé, je ne comprends pas ce message. Essayez : \"météo Paris\", \"météo Paris 3 jours\" ou \"histoire drôle\".");
 }
 
 async function poll(): Promise<void> {
