@@ -2,12 +2,13 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Interop API",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "description": "API REST exposant des fonctionnalités météo, blagues et messagerie Telegram, avec enrichissement IA via Mistral."
   },
   "paths": {
     "/telegram/message": {
       "post": {
-        "summary": "Send a message to a Telegram chat",
+        "summary": "Envoyer un message dans un chat Telegram",
         "requestBody": {
           "required": true,
           "content": {
@@ -18,11 +19,13 @@
                 "properties": {
                   "chatId": {
                     "type": "string",
-                    "description": "Telegram chat or user ID"
+                    "description": "Identifiant du chat ou de l'utilisateur Telegram",
+                    "example": "123456789"
                   },
                   "text": {
                     "type": "string",
-                    "description": "Message to send"
+                    "description": "Contenu du message à envoyer",
+                    "example": "Bonjour depuis l'API !"
                   }
                 }
               }
@@ -31,14 +34,14 @@
         },
         "responses": {
           "200": {
-            "description": "Message sent successfully",
+            "description": "Message envoyé avec succès",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success": { "type": "boolean" },
-                    "messageId": { "type": "integer" }
+                    "success": { "type": "boolean", "example": true },
+                    "messageId": { "type": "integer", "example": 42 }
                   }
                 }
               }
@@ -49,50 +52,55 @@
         }
       }
     },
+
     "/weather": {
       "get": {
-        "summary": "Get current weather for a city",
+        "summary": "Obtenir la météo actuelle d'une ville",
+        "description": "Retourne les données météo actuelles. Si `forecast=true`, inclut également les prévisions pour les 2 prochains jours (via l'API forecast 5j/3h d'OpenWeatherMap). La réponse est enrichie par Mistral AI avec des conseils vestimentaires.",
         "parameters": [
           {
             "name": "city",
             "in": "query",
             "required": true,
             "schema": { "type": "string" },
-            "description": "City name (e.g. \"Paris\")"
+            "description": "Nom de la ville",
+            "example": "Paris"
           },
           {
             "name": "forecast",
             "in": "query",
             "required": false,
-            "schema": { "type": "boolean" },
-            "description": "If true, includes weather forecast for the next 2 days"
+            "schema": { "type": "boolean", "default": false },
+            "description": "Si true, inclut les prévisions des 2 prochains jours"
           }
         ],
         "responses": {
           "200": {
-            "description": "Weather data for the requested city",
+            "description": "Données météo de la ville demandée",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": ["city", "country", "temperature", "feels_like", "humidity", "description"],
                   "properties": {
-                    "city": { "type": "string" },
-                    "country": { "type": "string" },
-                    "temperature": { "type": "number", "description": "Temperature in Celsius" },
-                    "feels_like": { "type": "number" },
-                    "humidity": { "type": "integer" },
-                    "description": { "type": "string", "example": "light rain" },
+                    "city": { "type": "string", "example": "Paris" },
+                    "country": { "type": "string", "example": "FR" },
+                    "temperature": { "type": "number", "description": "Température en Celsius", "example": 18.4 },
+                    "feels_like": { "type": "number", "description": "Température ressentie en Celsius", "example": 17.1 },
+                    "humidity": { "type": "integer", "description": "Humidité en %", "example": 72 },
+                    "description": { "type": "string", "example": "légère pluie" },
                     "forecast": {
                       "type": "array",
-                      "description": "Present only when forecast=true",
+                      "description": "Présent uniquement si forecast=true. Prévisions pour les 2 prochains jours.",
                       "items": {
                         "type": "object",
+                        "required": ["date", "temperature", "feels_like", "humidity", "description"],
                         "properties": {
                           "date": { "type": "string", "example": "2024-05-06" },
-                          "temperature": { "type": "number" },
-                          "feels_like": { "type": "number" },
-                          "humidity": { "type": "integer" },
-                          "description": { "type": "string" }
+                          "temperature": { "type": "number", "example": 15.2 },
+                          "feels_like": { "type": "number", "example": 14.0 },
+                          "humidity": { "type": "integer", "example": 80 },
+                          "description": { "type": "string", "example": "ciel couvert" }
                         }
                       }
                     }
@@ -102,24 +110,168 @@
             }
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
-          "404": { "description": "City not found" },
-          "502": { "$ref": "#/components/responses/UpstreamError" }
-        }
-      }
-    },
-    "/joke": {
-      "get": {
-        "summary": "Get a random funny story",
-        "responses": {
-          "200": {
-            "description": "A randomly picked joke",
+          "404": {
+            "description": "Ville introuvable",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "id": { "type": "integer" },
-                    "joke": { "type": "string" }
+                    "error": { "type": "string", "example": "City not found: Timbuktu123" }
+                  }
+                }
+              }
+            }
+          },
+          "502": { "$ref": "#/components/responses/UpstreamError" }
+        }
+      }
+    },
+
+    "/tasks": {
+      "get": {
+        "summary": "Lister toutes les tâches",
+        "responses": {
+          "200": {
+            "description": "Liste de toutes les tâches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Task" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Ajouter une nouvelle tâche",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["text"],
+                "properties": {
+                  "text": { "type": "string", "example": "Préparer la présentation" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tâche créée",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Task" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+
+    "/tasks/{id}/check": {
+      "patch": {
+        "summary": "Marquer une tâche comme faite",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }, "example": 1 }
+        ],
+        "responses": {
+          "200": { "description": "Tâche marquée comme faite", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessResponse" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+
+    "/tasks/{id}/uncheck": {
+      "patch": {
+        "summary": "Marquer une tâche comme non faite",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }, "example": 1 }
+        ],
+        "responses": {
+          "200": { "description": "Tâche marquée comme non faite", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessResponse" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+
+    "/tasks/{id}": {
+      "delete": {
+        "summary": "Supprimer une tâche",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }, "example": 1 }
+        ],
+        "responses": {
+          "200": { "description": "Tâche supprimée", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessResponse" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+
+    "/recommend": {
+      "get": {
+        "summary": "Obtenir une recommandation de film ou série via Mistral AI",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "enum": ["movie", "serie"] },
+            "description": "Type de contenu à recommander",
+            "example": "movie"
+          },
+          {
+            "name": "genre",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Genre souhaité (optionnel)",
+            "example": "thriller"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recommandation générée par Mistral AI",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": { "type": "string", "example": "movie" },
+                    "genre": { "type": "string", "nullable": true, "example": "thriller" },
+                    "recommendation": { "type": "string", "example": "🎬 Parasite (2019)\n🎭 Genre: Thriller / Drame\n..." }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "502": { "$ref": "#/components/responses/UpstreamError" }
+        }
+      }
+    },
+
+    "/joke": {
+      "get": {
+        "summary": "Obtenir une blague aléatoire",
+        "description": "Retourne une blague choisie aléatoirement parmi la liste persistée dans `data/jokes.json`.",
+        "responses": {
+          "200": {
+            "description": "Une blague choisie aléatoirement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["id", "joke"],
+                  "properties": {
+                    "id": { "type": "integer", "example": 3 },
+                    "joke": { "type": "string", "example": "C'est l'histoire d'une bretelle qui rencontre une autre bretelle... Passons." }
                   }
                 }
               }
@@ -129,29 +281,60 @@
       }
     }
   },
+
   "components": {
+    "schemas": {
+      "Task": {
+        "type": "object",
+        "required": ["id", "task", "done"],
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "task": { "type": "string", "example": "Préparer la présentation" },
+          "done": { "type": "boolean", "example": false }
+        }
+      },
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true }
+        }
+      }
+    },
     "responses": {
       "BadRequest": {
-        "description": "Missing or invalid parameters",
+        "description": "Paramètres manquants ou invalides",
         "content": {
           "application/json": {
             "schema": {
               "type": "object",
               "properties": {
-                "error": { "type": "string" }
+                "error": { "type": "string", "example": "city query parameter is required" }
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Ressource introuvable",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string", "example": "Task 99 not found" }
               }
             }
           }
         }
       },
       "UpstreamError": {
-        "description": "External API call failed",
+        "description": "Échec d'un appel vers une API externe (Telegram, OpenWeatherMap, Mistral)",
         "content": {
           "application/json": {
             "schema": {
               "type": "object",
               "properties": {
-                "error": { "type": "string" }
+                "error": { "type": "string", "example": "Telegram API error" }
               }
             }
           }

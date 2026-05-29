@@ -40,7 +40,7 @@ const WEATHER_PROMPT = `You are a friendly weather assistant. You receive weathe
 Write a short, natural and friendly message (3-5 sentences) in French that:
 1. Summarizes the weather conditions conversationally
 2. Recommends what to wear based on the temperature, humidity and conditions
-If forecast data is included, briefly mention what's coming in the next days too.
+3. always keep the temperature in Celsius
 Do NOT output raw numbers or JSON — write naturally like a friend texting you.`;
 
 const TASK_RESOLVE_PROMPT = `You are a task manager assistant. The user sent a message about managing their tasks but didn't provide a task ID.
